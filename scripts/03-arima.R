@@ -1,6 +1,10 @@
 library('forecast')
 library('tseries')
 
+#Datos
+df <- read.csv("./datos/temperaturas.csv")
+df <- df[, -1]
+
 #Preparacion datasets
 df_test <- df[df$dia >= as.Date("2021-01-01"), ]
 df_train <- df[df$dia < as.Date("2021-01-01"), ]
@@ -34,7 +38,12 @@ prediccion <- forecast(modeloarima, h=365)
 plot(prediccion)
 
 result <- prediccion$mean + decomp$time.series[1:365, 1]
-df_test$arima <- result[1:304]
+df_test$predict <- result[1:304]
+
+#Validacion
+sqrt(mean((df_test$min - df_test$predict)^2))
+sqrt(mean((df_test$min[1:90] - df_test$predict[1:90])^2))
+sqrt(mean((df_test$min[1:30] - df_test$predict[1:30])^2))
 
 ggplot(df_test, aes(dia)) + 
   geom_line(aes(y = min, colour = "min")) + 
@@ -42,21 +51,4 @@ ggplot(df_test, aes(dia)) +
   ylab("Temperatura") + xlab("Fecha") +
   theme(legend.position="none")
 
-#ECM
-sqrt(mean((df_test$min - df_test$arima)^2))
-
-#Total
-mean(df_test$arima - df_test$min)
-mean(abs(df_test$arima - df_test$min))
-var(abs(df_test$arima - df_test$min))
-
-#Primer mes
-mean(df_test$arima[1:30] - df_test$min[1:30])
-mean(abs(df_test$arima[1:30] - df_test$min[1:30]))
-var(abs(df_test$arima[1:30] - df_test$min[1:30]))
-
-#Primer trimestre
-mean(df_test$arima[1:90] - df_test$min[1:90])
-mean(abs(df_test$arima[1:90] - df_test$min[1:90]))
-var(abs(df_test$arima[1:30] - df_test$min[1:30]))
 

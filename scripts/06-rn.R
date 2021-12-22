@@ -1,6 +1,11 @@
-library("xgboost")
-library("tidyverse")
-library("caret")
+library(keras)
+library(tensorflow)
+library(dplyr)
+library(tidyverse)
+
+t <- Sys.time()
+install_keras()
+Sys.time() - t
 
 #Preparacion datasets
 df <- read.csv("./datos/temperaturas.csv")
@@ -16,27 +21,44 @@ df_train <- df_rf[df_rf$dia < as.Date("2021-01-01"), ]
 
 
 train_x = data.matrix(df_train[1:nrow(df_train), c(4:ncol(df_train))])
-train_y = df_train[1:nrow(df_train), 2]
+train_y = data.matrix(df_train[1:nrow(df_train), 2])
 
 test_x = data.matrix(df_test[, c(4:ncol(df_test))])
-test_y = df_test[, 2]
 
 t <- Sys.time()
-xgb <-  xgboost(train_x, label = train_y,
-    nrounds = 50000, objective = "reg:squarederror",
-    early_stopping_rounds = 3, max_depth = 3, eta = .25)   
+model <- keras_model_sequential() 
 Sys.time() - t
-#Time difference of 3.470281 mins
+
+model %>% 
+  layer_dense(units = 256, activation = 'sigmoid', input_shape = c(14)) %>% 
+  layer_dropout(rate = 0.4) %>% 
+  layer_dense(units = 128, activation = 'relu') %>%
+  layer_dropout(rate = 0.3) %>%
+  layer_dense(units = 1, activation = 'linear')
+
+model %>% compile(
+  loss = 'mean_squared_error',
+  optimizer = "adam",
+  metrics = list("mean_absolute_error")
+)
+
+t <- Sys.time()
+history <- model %>% fit(
+  train_x, train_y, 
+  epochs = 3000, batch_size = 128, 
+  validation_split = 0.2
+)
+Sys.time() - t
+#Time difference of 19.02275 mins
 
 #Guardar y cargar modelo
-saveRDS(xgb, "./modelos/xgb.rds")
-xgb <- readRDS("./modelos/xgb.rds")
+saveRDS(xgb, "./modelos/rn.rds")
+model <- readRDS("./modelos/rn.rds")
 
 #Predicción
 df_test$predict <- 0
 for(i in c(1:304)){
-  xgb_test = xgb.DMatrix(data = test_x, label = test_y)
-  result <- predict(xgb, xgb_test)[i]
+  result <- predict(model, test_x)[i]
   df_test$predict[i] <- result
   if(i != 304){
     test_x[i+1, 1:14] <- c(test_x[i, 2:14], result)
@@ -53,3 +75,18 @@ ggplot(df_test, aes(dia)) +
   geom_line(aes(y = predict, colour = "predict")) +
   ylab("Temperatura") + xlab("Fecha") +
   theme(legend.position="none")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
